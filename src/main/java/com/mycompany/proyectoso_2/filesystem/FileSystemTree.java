@@ -1,0 +1,91 @@
+package com.mycompany.proyectoso_2.filesystem;
+
+public class FileSystemTree {
+
+    private final DirectoryNode root;
+
+    public FileSystemTree() {
+        root = new DirectoryNode("/", "system", EntryVisibility.SYSTEM);
+    }
+
+    public DirectoryNode getRoot() {
+        return root;
+    }
+
+    public FSNode findNode(String path) {
+        validatePath(path);
+        if ("/".equals(path)) {
+            return root;
+        }
+
+        String[] segments = splitPath(path);
+        FSNode current = root;
+        for (int index = 0; index < segments.length; index++) {
+            if (!(current instanceof DirectoryNode directory)) {
+                return null;
+            }
+            current = findChild(directory, segments[index]);
+            if (current == null) {
+                return null;
+            }
+        }
+        return current;
+    }
+
+    public DirectoryNode createDirectory(
+            String parentPath,
+            String name,
+            String owner,
+            EntryVisibility visibility
+    ) {
+        DirectoryNode parent = requireDirectory(parentPath);
+        DirectoryNode newDirectory = new DirectoryNode(name, owner, visibility);
+        parent.addChild(newDirectory);
+        return newDirectory;
+    }
+
+    public FileNode createFile(
+            String parentPath,
+            String name,
+            String owner,
+            EntryVisibility visibility,
+            int sizeInBlocks
+    ) {
+        DirectoryNode parent = requireDirectory(parentPath);
+        FileNode newFile = new FileNode(name, owner, visibility, sizeInBlocks);
+        parent.addChild(newFile);
+        return newFile;
+    }
+
+    public DirectoryNode requireDirectory(String path) {
+        FSNode node = findNode(path);
+        if (node == null) {
+            throw new IllegalArgumentException("No existe la ruta: " + path + ".");
+        }
+        if (!(node instanceof DirectoryNode directory)) {
+            throw new IllegalArgumentException("La ruta no apunta a un directorio: " + path + ".");
+        }
+        return directory;
+    }
+
+    private FSNode findChild(DirectoryNode directory, String name) {
+        for (int index = 0; index < directory.getChildrenCount(); index++) {
+            FSNode child = directory.getChildAt(index);
+            if (child.getName().equals(name)) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private String[] splitPath(String path) {
+        String normalizedPath = path.substring(1);
+        return normalizedPath.split("/");
+    }
+
+    private void validatePath(String path) {
+        if (path == null || path.isBlank() || !path.startsWith("/")) {
+            throw new IllegalArgumentException("La ruta debe empezar por '/'.");
+        }
+    }
+}
