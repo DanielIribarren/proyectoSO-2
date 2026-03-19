@@ -105,6 +105,12 @@ public class FileSystemTree {
         return directory;
     }
 
+    public void clear() {
+        while (root.getChildrenCount() > 0) {
+            root.removeChildAt(0);
+        }
+    }
+
     private FSNode findChild(DirectoryNode directory, String name) {
         for (int index = 0; index < directory.getChildrenCount(); index++) {
             FSNode child = directory.getChildAt(index);

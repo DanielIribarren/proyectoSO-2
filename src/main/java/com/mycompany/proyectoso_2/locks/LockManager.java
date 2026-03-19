@@ -75,6 +75,10 @@ public class LockManager {
         return description.toString();
     }
 
+    public void clear() {
+        resources.clear();
+    }
+
     private void appendGrantList(
             StringBuilder description,
             SinglyLinkedList<LockGrant> grants

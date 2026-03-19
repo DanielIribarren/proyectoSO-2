@@ -15,6 +15,10 @@ import com.mycompany.proyectoso_2.locks.LockRequest;
 import com.mycompany.proyectoso_2.locks.LockType;
 import com.mycompany.proyectoso_2.model.SchedulingPolicy;
 import com.mycompany.proyectoso_2.model.UserMode;
+import com.mycompany.proyectoso_2.persistence.SavedDirectory;
+import com.mycompany.proyectoso_2.persistence.SavedFile;
+import com.mycompany.proyectoso_2.persistence.SimulationSaveData;
+import com.mycompany.proyectoso_2.persistence.SimulationStateRepository;
 import com.mycompany.proyectoso_2.process.IORequest;
 import com.mycompany.proyectoso_2.process.OperationType;
 import com.mycompany.proyectoso_2.process.ProcessControlBlock;
@@ -22,6 +26,8 @@ import com.mycompany.proyectoso_2.process.ProcessState;
 import com.mycompany.proyectoso_2.scheduler.DiskScheduler;
 import com.mycompany.proyectoso_2.scheduler.HeadDirection;
 import com.mycompany.proyectoso_2.structures.SinglyLinkedList;
+import java.io.IOException;
+import java.nio.file.Path;
 
 public class SimulationController {
 
@@ -33,6 +39,7 @@ public class SimulationController {
     private final DiskScheduler diskScheduler;
     private final LockManager lockManager;
     private final JournalManager journalManager;
+    private final SimulationStateRepository stateRepository;
     private final SinglyLinkedList<SimulationTask> pendingTasks;
     private final SinglyLinkedList<ProcessControlBlock> processHistory;
     private final SinglyLinkedList<String> eventLog;
@@ -51,6 +58,7 @@ public class SimulationController {
         diskScheduler = new DiskScheduler();
         lockManager = new LockManager();
         journalManager = new JournalManager();
+        stateRepository = new SimulationStateRepository();
         pendingTasks = new SinglyLinkedList<>();
         processHistory = new SinglyLinkedList<>();
         eventLog = new SinglyLinkedList<>();
@@ -297,6 +305,17 @@ public class SimulationController {
         return count;
     }
 
+    public void saveToJson(Path path) throws IOException {
+        stateRepository.save(path, buildSaveData());
+        appendEvent("[JSON] Estado guardado en " + path.getFileName() + ".");
+    }
+
+    public void loadFromJson(Path path) throws IOException {
+        SimulationSaveData saveData = stateRepository.load(path);
+        applySaveData(saveData);
+        appendEvent("[JSON] Estado cargado desde " + path.getFileName() + ".");
+    }
+
     private void deleteNodeInternal(FSNode targetNode) {
         if (targetNode.getType() == FSNodeType.FILE) {
             deleteFileWithJournal((FileNode) targetNode);
@@ -309,6 +328,42 @@ public class SimulationController {
             deleteNodeInternal(child);
         }
         fileSystemTree.removeNode(directory.getPath());
+    }
+
+    private SimulationSaveData buildSaveData() {
+        SinglyLinkedList<SavedDirectory> directories = new SinglyLinkedList<>();
+        SinglyLinkedList<SavedFile> files = new SinglyLinkedList<>();
+        collectSaveEntries(fileSystemTree.getRoot(), directories, files);
+        return new SimulationSaveData(
+                currentMode,
+                schedulingPolicy,
+                currentHeadPosition,
+                toDirectoryArray(directories),
+                toFileArray(files)
+        );
+    }
+
+    private void applySaveData(SimulationSaveData saveData) {
+        resetState();
+        currentMode = saveData.getUserMode();
+        schedulingPolicy = saveData.getSchedulingPolicy();
+        currentHeadPosition = saveData.getHeadPosition();
+
+        SavedDirectory[] directories = saveData.getDirectories();
+        for (int index = 0; index < directories.length; index++) {
+            SavedDirectory directory = directories[index];
+            fileSystemTree.createDirectory(
+                    parentPath(directory.getPath()),
+                    nameFromPath(directory.getPath()),
+                    directory.getOwner(),
+                    directory.getVisibility()
+            );
+        }
+
+        SavedFile[] files = saveData.getFiles();
+        for (int index = 0; index < files.length; index++) {
+            restoreFile(files[index]);
+        }
     }
 
     private void deleteFileWithJournal(FileNode file) {
@@ -341,6 +396,31 @@ public class SimulationController {
         appendEvent("[PROC] PID " + process.getPid()
                 + " creado para " + operationType + " en " + targetPath + ".");
         processQueue();
+    }
+
+    private void restoreFile(SavedFile savedFile) {
+        FileNode restoredFile = fileSystemTree.createFile(
+                parentPath(savedFile.getPath()),
+                nameFromPath(savedFile.getPath()),
+                savedFile.getOwner(),
+                savedFile.getVisibility(),
+                savedFile.getSizeInBlocks()
+        );
+
+        int[] blocks = savedFile.getBlocks();
+        if (blocks.length == 0) {
+            restoredFile.setFirstBlockIndex(-1);
+            restoredFile.setColorId(-1);
+            return;
+        }
+
+        for (int index = 0; index < blocks.length; index++) {
+            int currentBlock = blocks[index];
+            int nextBlock = index == blocks.length - 1 ? -1 : blocks[index + 1];
+            disk.occupyBlock(currentBlock, restoredFile.getPath(), nextBlock, savedFile.getColorId());
+        }
+        restoredFile.setFirstBlockIndex(blocks[0]);
+        restoredFile.setColorId(savedFile.getColorId());
     }
 
     private void processQueue() {
@@ -478,6 +558,38 @@ public class SimulationController {
         return requestedPosition;
     }
 
+    private void collectSaveEntries(
+            FSNode node,
+            SinglyLinkedList<SavedDirectory> directories,
+            SinglyLinkedList<SavedFile> files
+    ) {
+        if (node.getType() == FSNodeType.FILE) {
+            FileNode file = (FileNode) node;
+            files.addLast(new SavedFile(
+                    file.getPath(),
+                    file.getOwner(),
+                    file.getVisibility(),
+                    file.getSizeInBlocks(),
+                    allocationManager.getAllocatedBlocks(file),
+                    file.getColorId()
+            ));
+            return;
+        }
+
+        DirectoryNode directory = (DirectoryNode) node;
+        if (!directory.isRoot()) {
+            directories.addLast(new SavedDirectory(
+                    directory.getPath(),
+                    directory.getOwner(),
+                    directory.getVisibility()
+            ));
+        }
+
+        for (int index = 0; index < directory.getChildrenCount(); index++) {
+            collectSaveEntries(directory.getChildAt(index), directories, files);
+        }
+    }
+
     private void collectFiles(FSNode node, SinglyLinkedList<FileNode> files) {
         if (node.getType() == FSNodeType.FILE) {
             files.addLast((FileNode) node);
@@ -522,6 +634,33 @@ public class SimulationController {
         return copy;
     }
 
+    private SavedDirectory[] toDirectoryArray(SinglyLinkedList<SavedDirectory> directories) {
+        SavedDirectory[] array = new SavedDirectory[directories.size()];
+        for (int index = 0; index < directories.size(); index++) {
+            array[index] = directories.get(index);
+        }
+        return array;
+    }
+
+    private SavedFile[] toFileArray(SinglyLinkedList<SavedFile> files) {
+        SavedFile[] array = new SavedFile[files.size()];
+        for (int index = 0; index < files.size(); index++) {
+            array[index] = files.get(index);
+        }
+        return array;
+    }
+
+    private void resetState() {
+        fileSystemTree.clear();
+        disk.clear();
+        lockManager.clear();
+        journalManager.clear();
+        pendingTasks.clear();
+        processHistory.clear();
+        eventLog.clear();
+        nextPid = 1;
+    }
+
     private void appendEvent(String event) {
         eventLog.addLast(event);
     }
@@ -531,6 +670,19 @@ public class SimulationController {
             return "admin";
         }
         return currentUser;
+    }
+
+    private String parentPath(String path) {
+        int separatorIndex = path.lastIndexOf('/');
+        if (separatorIndex <= 0) {
+            return "/";
+        }
+        return path.substring(0, separatorIndex);
+    }
+
+    private String nameFromPath(String path) {
+        int separatorIndex = path.lastIndexOf('/');
+        return path.substring(separatorIndex + 1);
     }
 
     private void ensureAdministrator(String action) {
