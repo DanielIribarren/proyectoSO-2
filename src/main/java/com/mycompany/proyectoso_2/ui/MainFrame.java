@@ -16,9 +16,11 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
+import java.io.IOException;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -29,6 +31,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.border.EmptyBorder;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 public class MainFrame extends JFrame {
 
@@ -67,8 +70,8 @@ public class MainFrame extends JFrame {
         renameButton = createActionButton("Renombrar", this::handleRenameNode);
         deleteButton = createActionButton("Eliminar", this::handleDeleteNode);
         simulateFailureButton = createActionButton("Simular fallo", this::handleSimulateFailure);
-        loadJsonButton = createActionButton("Cargar JSON", this::showJsonPendingMessage);
-        saveJsonButton = createActionButton("Guardar JSON", this::showJsonPendingMessage);
+        loadJsonButton = createActionButton("Cargar JSON", this::handleLoadJson);
+        saveJsonButton = createActionButton("Guardar JSON", this::handleSaveJson);
         initializeFrame();
     }
 
@@ -264,13 +267,24 @@ public class MainFrame extends JFrame {
         refreshView();
     }
 
-    private void showJsonPendingMessage() {
-        JOptionPane.showMessageDialog(
-                this,
-                "La persistencia JSON se integrara en la siguiente rama.",
-                "Modulo pendiente",
-                JOptionPane.INFORMATION_MESSAGE
-        );
+    private void handleLoadJson() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Archivos JSON", "json"));
+        fileChooser.setSelectedFile(new java.io.File("simulator-state.json"));
+        if (fileChooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        executeJsonLoad(fileChooser);
+    }
+
+    private void handleSaveJson() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Archivos JSON", "json"));
+        fileChooser.setSelectedFile(new java.io.File("simulator-state.json"));
+        if (fileChooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        executeJsonSave(fileChooser);
     }
 
     private boolean showFormDialog(String title, Object... components) {
@@ -388,5 +402,33 @@ public class MainFrame extends JFrame {
                 "Operacion invalida",
                 JOptionPane.ERROR_MESSAGE
         );
+    }
+
+    private void executeJsonSave(JFileChooser fileChooser) {
+        try {
+            controller.saveToJson(ensureJsonExtension(fileChooser.getSelectedFile()).toPath());
+            refreshView();
+        } catch (IOException exception) {
+            showError("No se pudo guardar el JSON: " + exception.getMessage());
+        }
+    }
+
+    private void executeJsonLoad(JFileChooser fileChooser) {
+        try {
+            controller.loadFromJson(fileChooser.getSelectedFile().toPath());
+            refreshView();
+        } catch (IOException exception) {
+            showError("No se pudo cargar el JSON: " + exception.getMessage());
+        }
+    }
+
+    private java.io.File ensureJsonExtension(java.io.File selectedFile) {
+        if (selectedFile.getName().endsWith(".json")) {
+            return selectedFile;
+        }
+        if (selectedFile.getParentFile() == null) {
+            return new java.io.File(selectedFile.getName() + ".json");
+        }
+        return new java.io.File(selectedFile.getParentFile(), selectedFile.getName() + ".json");
     }
 }
