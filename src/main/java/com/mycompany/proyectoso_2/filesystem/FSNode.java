@@ -63,6 +63,11 @@ public abstract class FSNode {
         return parent.getPath() + "/" + name;
     }
 
+    @Override
+    public String toString() {
+        return name;
+    }
+
     private void validateName(String candidateName) {
         if (candidateName == null || candidateName.isBlank()) {
             throw new IllegalArgumentException("El nombre no puede estar vacio.");

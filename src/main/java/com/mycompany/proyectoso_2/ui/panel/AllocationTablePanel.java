@@ -11,10 +11,17 @@ import javax.swing.JTable;
 public class AllocationTablePanel extends JPanel {
 
     private final AllocationTableModel tableModel;
+    private final JLabel footerLabel;
 
     public AllocationTablePanel() {
         tableModel = new AllocationTableModel();
+        footerLabel = new JLabel("La tabla se actualizara con cada operacion CRUD.");
         initializePanel();
+    }
+
+    public void setRows(Object[][] rows) {
+        tableModel.setRows(rows);
+        footerLabel.setText("Archivos asignados: " + rows.length + ".");
     }
 
     private void initializePanel() {
@@ -25,7 +32,6 @@ public class AllocationTablePanel extends JPanel {
         allocationTable.setFillsViewportHeight(true);
 
         add(new JScrollPane(allocationTable), BorderLayout.CENTER);
-        add(new JLabel("La tabla se actualizara con cada operacion CRUD."),
-                BorderLayout.SOUTH);
+        add(footerLabel, BorderLayout.SOUTH);
     }
 }
