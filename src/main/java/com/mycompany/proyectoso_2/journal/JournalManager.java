@@ -84,6 +84,11 @@ public class JournalManager {
         return entries;
     }
 
+    public void clear() {
+        entries.clear();
+        nextTransactionId = 1;
+    }
+
     private JournalEntry createEntry(OperationType operationType, String targetPath) {
         JournalEntry entry = new JournalEntry(nextTransactionId, operationType, targetPath);
         nextTransactionId++;
