@@ -32,4 +32,11 @@ public class LogPanel extends JPanel {
         }
         textArea.append(line);
     }
+
+    public void setLines(String[] lines) {
+        textArea.setText("");
+        for (int index = 0; index < lines.length; index++) {
+            appendLine(lines[index]);
+        }
+    }
 }

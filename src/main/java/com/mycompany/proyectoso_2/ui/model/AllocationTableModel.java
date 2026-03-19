@@ -32,6 +32,11 @@ public class AllocationTableModel extends AbstractTableModel {
     }
 
     public void setRows(Object[][] newRows) {
+        if (newRows == null) {
+            rows = new Object[0][columns.length];
+            fireTableDataChanged();
+            return;
+        }
         rows = copyRows(newRows);
         fireTableDataChanged();
     }
