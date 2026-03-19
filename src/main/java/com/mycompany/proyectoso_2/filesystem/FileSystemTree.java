@@ -73,6 +73,27 @@ public class FileSystemTree {
         return parent.removeChildAt(childIndex);
     }
 
+    public FSNode renameNode(String path, String newName) {
+        validatePath(path);
+        if ("/".equals(path)) {
+            throw new IllegalArgumentException("La raiz del sistema no se puede renombrar.");
+        }
+
+        String parentPath = getParentPath(path);
+        DirectoryNode parent = requireDirectory(parentPath);
+        int childIndex = parent.indexOfChild(getNodeName(path));
+        if (childIndex < 0) {
+            throw new IllegalArgumentException("No existe la ruta: " + path + ".");
+        }
+        if (parent.indexOfChild(newName) >= 0) {
+            throw new IllegalArgumentException("Ya existe un nodo con nombre " + newName + ".");
+        }
+
+        FSNode node = parent.getChildAt(childIndex);
+        node.rename(newName);
+        return node;
+    }
+
     public DirectoryNode requireDirectory(String path) {
         FSNode node = findNode(path);
         if (node == null) {
