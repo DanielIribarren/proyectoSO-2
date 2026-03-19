@@ -57,6 +57,22 @@ public class FileSystemTree {
         return newFile;
     }
 
+    public FSNode removeNode(String path) {
+        validatePath(path);
+        if ("/".equals(path)) {
+            throw new IllegalArgumentException("La raiz del sistema no se puede eliminar.");
+        }
+
+        String parentPath = getParentPath(path);
+        String nodeName = getNodeName(path);
+        DirectoryNode parent = requireDirectory(parentPath);
+        int childIndex = parent.indexOfChild(nodeName);
+        if (childIndex < 0) {
+            throw new IllegalArgumentException("No existe la ruta: " + path + ".");
+        }
+        return parent.removeChildAt(childIndex);
+    }
+
     public DirectoryNode requireDirectory(String path) {
         FSNode node = findNode(path);
         if (node == null) {
@@ -81,6 +97,19 @@ public class FileSystemTree {
     private String[] splitPath(String path) {
         String normalizedPath = path.substring(1);
         return normalizedPath.split("/");
+    }
+
+    private String getParentPath(String path) {
+        int separatorIndex = path.lastIndexOf('/');
+        if (separatorIndex <= 0) {
+            return "/";
+        }
+        return path.substring(0, separatorIndex);
+    }
+
+    private String getNodeName(String path) {
+        int separatorIndex = path.lastIndexOf('/');
+        return path.substring(separatorIndex + 1);
     }
 
     private void validatePath(String path) {
