@@ -50,7 +50,6 @@ public class MainFrame extends JFrame {
     private final JComboBox<UserMode> modeComboBox;
     private final JComboBox<SchedulingPolicy> policyComboBox;
     private final JSpinner headSpinner;
-    private final JTextField currentUserField;
     private final JButton createFileButton;
     private final JButton createDirectoryButton;
     private final JButton readButton;
@@ -61,7 +60,6 @@ public class MainFrame extends JFrame {
     private final JButton pauseSchedulerButton;
     private final JButton resumeSchedulerButton;
     private final JButton interruptButton;
-    private final JButton applyUserButton;
     private final JButton loadJsonButton;
     private final JButton saveJsonButton;
     private final JButton loadTestCaseButton;
@@ -81,10 +79,9 @@ public class MainFrame extends JFrame {
         policyComboBox = new JComboBox<>(SchedulingPolicy.values());
         headSpinner = new JSpinner(new SpinnerNumberModel(12, 0, 199, 1));
         configureHeadSpinner();
-        currentUserField = new JTextField("daniel", 8);
         createFileButton = createActionButton("Crear archivo", this::handleCreateFile);
-        createDirectoryButton = createActionButton("Crear directorio", this::handleCreateDirectory);
-        readButton = createActionButton("Leer seleccionado", this::handleReadNode);
+        createDirectoryButton = createActionButton("Crear dir.", this::handleCreateDirectory);
+        readButton = createActionButton("Leer", this::handleReadNode);
         renameButton = createActionButton("Renombrar", this::handleRenameNode);
         deleteButton = createActionButton("Eliminar", this::handleDeleteNode);
         simulateFailureButton = createActionButton("Simular fallo", this::handleSimulateFailure);
@@ -92,10 +89,9 @@ public class MainFrame extends JFrame {
         pauseSchedulerButton = createActionButton("Pausar", controller::pauseScheduler);
         resumeSchedulerButton = createActionButton("Reanudar", controller::resumeScheduler);
         interruptButton = createActionButton("Interrumpir actual", controller::interruptCurrentProcess);
-        applyUserButton = createActionButton("Aplicar usuario", this::handleApplyUser);
-        loadJsonButton = createActionButton("Cargar JSON", this::handleLoadJson);
+        loadJsonButton = createActionButton("Abrir JSON", this::handleLoadJson);
         saveJsonButton = createActionButton("Guardar JSON", this::handleSaveJson);
-        loadTestCaseButton = createActionButton("Cargar caso de prueba", this::handleLoadTestCase);
+        loadTestCaseButton = createActionButton("Caso prueba", this::handleLoadTestCase);
         refreshQueued = false;
         refreshRequestedWhileQueued = false;
         initializeFrame();
@@ -131,7 +127,7 @@ public class MainFrame extends JFrame {
     }
 
     private JPanel buildTopBar() {
-        JPanel topBar = new JPanel(new GridLayout(2, 1, 0, 6));
+        JPanel topBar = new JPanel(new GridLayout(3, 1, 0, 6));
         topBar.setBorder(BorderFactory.createTitledBorder("Controles de simulacion"));
 
         JPanel schedulerRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
@@ -141,27 +137,27 @@ public class MainFrame extends JFrame {
         schedulerRow.add(policyComboBox);
         schedulerRow.add(new JLabel("Cabezal"));
         schedulerRow.add(headSpinner);
-        schedulerRow.add(new JLabel("Usuario"));
-        schedulerRow.add(currentUserField);
-        schedulerRow.add(applyUserButton);
         schedulerRow.add(startSchedulerButton);
         schedulerRow.add(pauseSchedulerButton);
         schedulerRow.add(resumeSchedulerButton);
         schedulerRow.add(interruptButton);
 
-        JPanel actionsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
-        actionsRow.add(createFileButton);
-        actionsRow.add(createDirectoryButton);
-        actionsRow.add(readButton);
-        actionsRow.add(renameButton);
-        actionsRow.add(deleteButton);
-        actionsRow.add(simulateFailureButton);
-        actionsRow.add(loadTestCaseButton);
-        actionsRow.add(loadJsonButton);
-        actionsRow.add(saveJsonButton);
+        JPanel fileActionsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
+        fileActionsRow.add(createFileButton);
+        fileActionsRow.add(createDirectoryButton);
+        fileActionsRow.add(readButton);
+        fileActionsRow.add(renameButton);
+        fileActionsRow.add(deleteButton);
+        fileActionsRow.add(simulateFailureButton);
+
+        JPanel persistenceRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
+        persistenceRow.add(loadTestCaseButton);
+        persistenceRow.add(loadJsonButton);
+        persistenceRow.add(saveJsonButton);
 
         topBar.add(schedulerRow);
-        topBar.add(actionsRow);
+        topBar.add(fileActionsRow);
+        topBar.add(persistenceRow);
 
         return topBar;
     }
@@ -230,6 +226,7 @@ public class MainFrame extends JFrame {
 
     private JButton createActionButton(String label, Runnable action) {
         JButton button = new JButton(label);
+        button.setFocusable(false);
         button.addActionListener(event -> {
             try {
                 action.run();
@@ -328,11 +325,6 @@ public class MainFrame extends JFrame {
                 nameField.getText().trim(),
                 parsePositiveInteger(sizeField.getText(), "El tamano del archivo")
         );
-        refreshView();
-    }
-
-    private void handleApplyUser() {
-        controller.setCurrentUser(currentUserField.getText().trim());
         refreshView();
     }
 
@@ -437,9 +429,6 @@ public class MainFrame extends JFrame {
         }
         if ((Integer) headSpinner.getValue() != controller.getCurrentHeadPosition()) {
             headSpinner.setValue(controller.getCurrentHeadPosition());
-        }
-        if (!currentUserField.getText().equals(controller.getCurrentUser())) {
-            currentUserField.setText(controller.getCurrentUser());
         }
         updateActionAvailability();
         updateSelectionTitle();
