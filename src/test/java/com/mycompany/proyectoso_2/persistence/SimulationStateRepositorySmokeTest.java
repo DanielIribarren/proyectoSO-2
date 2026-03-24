@@ -16,12 +16,16 @@ public final class SimulationStateRepositorySmokeTest {
 
     public static void main(String[] args) throws IOException {
         SimulationController sourceController = new SimulationController();
+        sourceController.startScheduler();
         sourceController.setSchedulingPolicy(SchedulingPolicy.C_SCAN);
         sourceController.setCurrentHeadPosition(21);
         sourceController.createDirectory("/users/daniel", "backup", EntryVisibility.PRIVATE);
+        assertTrue(sourceController.waitUntilIdle(4_000), "El directorio backup debe crearse.");
         sourceController.createFile("/users/daniel/backup", "state.bin", 4, EntryVisibility.PUBLIC);
+        assertTrue(sourceController.waitUntilIdle(4_000), "El archivo state.bin debe crearse.");
         sourceController.setCurrentHeadPosition(21);
         sourceController.setCurrentMode(UserMode.USUARIO);
+        sourceController.setCurrentUser("daniel");
 
         Path tempFile = Files.createTempFile("proyecto-so2-state", ".json");
         sourceController.saveToJson(tempFile);
@@ -35,6 +39,8 @@ public final class SimulationStateRepositorySmokeTest {
                 "La politica del scheduler debe persistirse.");
         assertEquals(21, loadedController.getCurrentHeadPosition(),
                 "La posicion del cabezal debe persistirse.");
+        assertEquals("daniel", loadedController.getCurrentUser(),
+                "El usuario activo debe persistirse.");
 
         FSNode backupDir = loadedController.getFileSystemTree().findNode("/users/daniel/backup");
         FSNode restoredFile = loadedController.getFileSystemTree().findNode("/users/daniel/backup/state.bin");
@@ -48,8 +54,12 @@ public final class SimulationStateRepositorySmokeTest {
         String jsonContent = Files.readString(tempFile);
         assertTrue(jsonContent.contains("\"policy\": \"C_SCAN\""),
                 "El JSON debe guardar la politica seleccionada.");
+        assertTrue(jsonContent.contains("\"currentUser\": \"daniel\""),
+                "El JSON debe guardar el usuario activo.");
         assertTrue(jsonContent.contains("\"path\": \"/users/daniel/backup/state.bin\""),
                 "El JSON debe guardar la ruta del archivo.");
+        assertTrue(jsonContent.contains("\"ioPosition\":"),
+                "El JSON debe guardar la posicion logica de E/S.");
 
         Files.deleteIfExists(tempFile);
         System.out.println("OK: pruebas basicas de persistencia JSON completadas.");

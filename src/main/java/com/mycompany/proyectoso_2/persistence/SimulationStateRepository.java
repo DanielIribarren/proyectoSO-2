@@ -33,6 +33,7 @@ public class SimulationStateRepository {
                 UserMode.valueOf(root.getString("mode")),
                 SchedulingPolicy.valueOf(root.getString("policy")),
                 root.getInt("head"),
+                root.has("currentUser") ? root.getString("currentUser") : "daniel",
                 parseDirectories(root.getArray("directories")),
                 parseFiles(root.getArray("files"))
         );
@@ -61,7 +62,8 @@ public class SimulationStateRepository {
                     EntryVisibility.valueOf(objectValue.getString("visibility")),
                     objectValue.getInt("size"),
                     parseIntArray(objectValue.getArray("blocks")),
-                    objectValue.getInt("colorId")
+                    objectValue.getInt("colorId"),
+                    objectValue.has("ioPosition") ? objectValue.getInt("ioPosition") : -1
             );
         }
         return files;
@@ -81,6 +83,7 @@ public class SimulationStateRepository {
         appendStringProperty(json, "mode", saveData.getUserMode().name(), true);
         appendStringProperty(json, "policy", saveData.getSchedulingPolicy().name(), true);
         appendNumberProperty(json, "head", saveData.getHeadPosition(), true);
+        appendStringProperty(json, "currentUser", saveData.getCurrentUser(), true);
         appendDirectories(json, saveData.getDirectories());
         json.append(",\n");
         appendFiles(json, saveData.getFiles());
@@ -115,7 +118,8 @@ public class SimulationStateRepository {
             appendStringProperty(json, "visibility", file.getVisibility().name(), true, 6);
             appendNumberProperty(json, "size", file.getSizeInBlocks(), true, 6);
             appendIntArrayProperty(json, "blocks", file.getBlocks(), true, 6);
-            appendNumberProperty(json, "colorId", file.getColorId(), false, 6);
+            appendNumberProperty(json, "colorId", file.getColorId(), true, 6);
+            appendNumberProperty(json, "ioPosition", file.getIoPosition(), false, 6);
             json.append("\n    }");
             if (index < files.length - 1) {
                 json.append(',');

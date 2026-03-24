@@ -17,6 +17,7 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.io.IOException;
+import javax.swing.SwingUtilities;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -32,6 +33,8 @@ import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 
 public class MainFrame extends JFrame {
 
@@ -45,13 +48,23 @@ public class MainFrame extends JFrame {
     private final JComboBox<UserMode> modeComboBox;
     private final JComboBox<SchedulingPolicy> policyComboBox;
     private final JSpinner headSpinner;
+    private final JTextField currentUserField;
     private final JButton createFileButton;
     private final JButton createDirectoryButton;
+    private final JButton readButton;
     private final JButton renameButton;
     private final JButton deleteButton;
     private final JButton simulateFailureButton;
+    private final JButton startSchedulerButton;
+    private final JButton pauseSchedulerButton;
+    private final JButton resumeSchedulerButton;
+    private final JButton interruptButton;
+    private final JButton applyUserButton;
     private final JButton loadJsonButton;
     private final JButton saveJsonButton;
+    private final JButton loadTestCaseButton;
+    private boolean refreshQueued;
+    private boolean refreshRequestedWhileQueued;
 
     public MainFrame() {
         super("Proyecto 2 - Simulador de Sistema de Archivos");
@@ -64,14 +77,24 @@ public class MainFrame extends JFrame {
         journalLogPanel = new LogPanel("Journal");
         modeComboBox = new JComboBox<>(UserMode.values());
         policyComboBox = new JComboBox<>(SchedulingPolicy.values());
-        headSpinner = new JSpinner(new SpinnerNumberModel(12, 0, 63, 1));
+        headSpinner = new JSpinner(new SpinnerNumberModel(12, 0, 199, 1));
+        currentUserField = new JTextField("daniel", 8);
         createFileButton = createActionButton("Crear archivo", this::handleCreateFile);
         createDirectoryButton = createActionButton("Crear directorio", this::handleCreateDirectory);
+        readButton = createActionButton("Leer seleccionado", this::handleReadNode);
         renameButton = createActionButton("Renombrar", this::handleRenameNode);
         deleteButton = createActionButton("Eliminar", this::handleDeleteNode);
         simulateFailureButton = createActionButton("Simular fallo", this::handleSimulateFailure);
+        startSchedulerButton = createActionButton("Iniciar", controller::startScheduler);
+        pauseSchedulerButton = createActionButton("Pausar", controller::pauseScheduler);
+        resumeSchedulerButton = createActionButton("Reanudar", controller::resumeScheduler);
+        interruptButton = createActionButton("Interrumpir actual", controller::interruptCurrentProcess);
+        applyUserButton = createActionButton("Aplicar usuario", this::handleApplyUser);
         loadJsonButton = createActionButton("Cargar JSON", this::handleLoadJson);
         saveJsonButton = createActionButton("Guardar JSON", this::handleSaveJson);
+        loadTestCaseButton = createActionButton("Cargar caso de prueba", this::handleLoadTestCase);
+        refreshQueued = false;
+        refreshRequestedWhileQueued = false;
         initializeFrame();
     }
 
@@ -91,10 +114,17 @@ public class MainFrame extends JFrame {
         contentPanel.add(buildBottomArea(), BorderLayout.SOUTH);
 
         setContentPane(contentPanel);
+        controller.setViewRefreshListener(this::scheduleRefreshView);
         wireControls();
         refreshView();
         pack();
         setLocationRelativeTo(null);
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent event) {
+                controller.shutdown();
+            }
+        });
     }
 
     private JPanel buildTopBar() {
@@ -107,11 +137,20 @@ public class MainFrame extends JFrame {
         topBar.add(policyComboBox);
         topBar.add(new JLabel("Cabezal"));
         topBar.add(headSpinner);
+        topBar.add(new JLabel("Usuario"));
+        topBar.add(currentUserField);
+        topBar.add(applyUserButton);
+        topBar.add(startSchedulerButton);
+        topBar.add(pauseSchedulerButton);
+        topBar.add(resumeSchedulerButton);
+        topBar.add(interruptButton);
         topBar.add(createFileButton);
         topBar.add(createDirectoryButton);
+        topBar.add(readButton);
         topBar.add(renameButton);
         topBar.add(deleteButton);
         topBar.add(simulateFailureButton);
+        topBar.add(loadTestCaseButton);
         topBar.add(loadJsonButton);
         topBar.add(saveJsonButton);
 
@@ -220,6 +259,12 @@ public class MainFrame extends JFrame {
         refreshView();
     }
 
+    private void handleReadNode() {
+        String selectedPath = requireSelectionPath();
+        controller.queueRead(selectedPath);
+        refreshView();
+    }
+
     private void handleRenameNode() {
         String selectedPath = requireSelectionPath();
         JTextField nameField = new JTextField();
@@ -267,6 +312,11 @@ public class MainFrame extends JFrame {
         refreshView();
     }
 
+    private void handleApplyUser() {
+        controller.setCurrentUser(currentUserField.getText().trim());
+        refreshView();
+    }
+
     private void handleLoadJson() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileFilter(new FileNameExtensionFilter("Archivos JSON", "json"));
@@ -287,6 +337,20 @@ public class MainFrame extends JFrame {
         executeJsonSave(fileChooser);
     }
 
+    private void handleLoadTestCase() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setFileFilter(new FileNameExtensionFilter("Archivos JSON", "json"));
+        if (fileChooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        try {
+            controller.loadTestCase(fileChooser.getSelectedFile().toPath());
+            refreshView();
+        } catch (IOException exception) {
+            showError("No se pudo cargar el caso de prueba: " + exception.getMessage());
+        }
+    }
+
     private boolean showFormDialog(String title, Object... components) {
         JPanel formPanel = new JPanel(new GridLayout(0, 1, 6, 6));
         for (Object component : components) {
@@ -305,9 +369,34 @@ public class MainFrame extends JFrame {
         ) == JOptionPane.OK_OPTION;
     }
 
+    private void scheduleRefreshView() {
+        synchronized (this) {
+            if (refreshQueued) {
+                refreshRequestedWhileQueued = true;
+                return;
+            }
+            refreshQueued = true;
+        }
+        SwingUtilities.invokeLater(() -> {
+            try {
+                refreshView();
+            } finally {
+                boolean scheduleAgain;
+                synchronized (MainFrame.this) {
+                    scheduleAgain = refreshRequestedWhileQueued;
+                    refreshQueued = false;
+                    refreshRequestedWhileQueued = false;
+                }
+                if (scheduleAgain) {
+                    scheduleRefreshView();
+                }
+            }
+        });
+    }
+
     private void refreshView() {
         String selectedPath = fileExplorerPanel.getSelectedPath();
-        fileExplorerPanel.setFileSystem(controller.getFileSystemTree());
+        fileExplorerPanel.setFileSystem(controller.buildVisibleTreeSnapshot());
         fileExplorerPanel.selectPath(selectedPath);
         diskPanel.setDiskState(controller.getDisk(), controller.getCurrentHeadPosition());
         allocationTablePanel.setRows(controller.buildAllocationRows());
@@ -330,27 +419,36 @@ public class MainFrame extends JFrame {
         if ((Integer) headSpinner.getValue() != controller.getCurrentHeadPosition()) {
             headSpinner.setValue(controller.getCurrentHeadPosition());
         }
+        if (!currentUserField.getText().equals(controller.getCurrentUser())) {
+            currentUserField.setText(controller.getCurrentUser());
+        }
         updateActionAvailability();
         updateSelectionTitle();
     }
 
     private void updateActionAvailability() {
         boolean adminMode = controller.getCurrentMode() == UserMode.ADMINISTRADOR;
+        FSNode selectedNode = resolveActualSelectedNode();
         createFileButton.setEnabled(adminMode);
         createDirectoryButton.setEnabled(adminMode);
         renameButton.setEnabled(adminMode);
         deleteButton.setEnabled(adminMode);
         simulateFailureButton.setEnabled(adminMode);
+        readButton.setEnabled(selectedNode != null
+                && selectedNode.getType() == FSNodeType.FILE
+                && controller.canReadNode(selectedNode));
     }
 
     private void updateSelectionTitle() {
         String selectedPath = fileExplorerPanel.getSelectedPath();
-        setTitle("Proyecto 2 - Simulador de Sistema de Archivos | " + selectedPath);
+        setTitle("Proyecto 2 - Simulador de Sistema de Archivos | "
+                + controller.getCurrentMode()
+                + " | usuario " + controller.getCurrentUser()
+                + " | " + selectedPath);
     }
 
     private String resolveSelectedDirectoryPath() {
-        String selectedPath = fileExplorerPanel.getSelectedPath();
-        FSNode selectedNode = controller.getFileSystemTree().findNode(selectedPath);
+        FSNode selectedNode = resolveActualSelectedNode();
         if (selectedNode == null) {
             return "/";
         }
@@ -358,6 +456,11 @@ public class MainFrame extends JFrame {
             return selectedNode.getPath();
         }
         return parentPath(selectedNode.getPath());
+    }
+
+    private FSNode resolveActualSelectedNode() {
+        String selectedPath = fileExplorerPanel.getSelectedPath();
+        return controller.getFileSystemTree().findNode(selectedPath);
     }
 
     private String requireSelectionPath() {

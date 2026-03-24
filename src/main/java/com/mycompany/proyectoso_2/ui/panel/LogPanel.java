@@ -31,6 +31,7 @@ public class LogPanel extends JPanel {
             textArea.append(System.lineSeparator());
         }
         textArea.append(line);
+        moveCaretToEnd();
     }
 
     public void setLines(String[] lines) {
@@ -38,5 +39,10 @@ public class LogPanel extends JPanel {
         for (int index = 0; index < lines.length; index++) {
             appendLine(lines[index]);
         }
+        moveCaretToEnd();
+    }
+
+    private void moveCaretToEnd() {
+        textArea.setCaretPosition(textArea.getDocument().getLength());
     }
 }

@@ -14,6 +14,24 @@ import javax.swing.JPanel;
 public class DiskPanel extends JPanel {
 
     private static final int GRID_COLUMNS = 8;
+    private static final Color[] FILE_COLORS = {
+        new Color(42, 157, 143),
+        new Color(233, 196, 106),
+        new Color(244, 162, 97),
+        new Color(230, 111, 81),
+        new Color(69, 123, 157),
+        new Color(168, 218, 220),
+        new Color(118, 200, 147),
+        new Color(181, 131, 141),
+        new Color(142, 202, 230),
+        new Color(255, 183, 3),
+        new Color(144, 190, 109),
+        new Color(87, 117, 144),
+        new Color(185, 251, 192),
+        new Color(255, 214, 165),
+        new Color(202, 178, 214),
+        new Color(255, 143, 163)
+    };
 
     private final JLabel summaryLabel;
     private SimulatedDisk disk;
@@ -30,7 +48,7 @@ public class DiskPanel extends JPanel {
         if (disk == null) {
             summaryLabel.setText("Disco sin inicializar.");
         } else {
-            summaryLabel.setText("Cabezal en " + headPosition
+            summaryLabel.setText("Cabezal logico en " + headPosition
                     + " | libres: " + disk.countFreeBlocks()
                     + " | ocupados: " + disk.countUsedBlocks());
         }
@@ -57,9 +75,9 @@ public class DiskPanel extends JPanel {
         int totalBlocks = disk.getTotalBlocks();
         int availableWidth = getWidth() - 40;
         int availableHeight = getHeight() - 70;
-        int blockWidth = Math.max(58, availableWidth / GRID_COLUMNS);
+        int blockWidth = Math.max(42, availableWidth / GRID_COLUMNS);
         int rows = (totalBlocks + GRID_COLUMNS - 1) / GRID_COLUMNS;
-        int blockHeight = Math.max(42, availableHeight / rows);
+        int blockHeight = Math.max(24, availableHeight / rows);
         int startX = 20;
         int startY = 30;
         FontMetrics fontMetrics = graphics.getFontMetrics();
@@ -92,11 +110,8 @@ public class DiskPanel extends JPanel {
         if (block.isFree()) {
             return new Color(232, 232, 232);
         }
-        int colorId = block.getColorId();
-        int red = 70 + (colorId * 53) % 150;
-        int green = 90 + (colorId * 83) % 130;
-        int blue = 110 + (colorId * 37) % 120;
-        return new Color(red, green, blue);
+        int colorId = Math.max(0, block.getColorId() - 1);
+        return FILE_COLORS[colorId % FILE_COLORS.length];
     }
 
     private String describeNextBlock(DiskBlock block) {

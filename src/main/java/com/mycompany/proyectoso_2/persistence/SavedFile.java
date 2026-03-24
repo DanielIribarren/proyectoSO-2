@@ -10,6 +10,7 @@ public class SavedFile {
     private final int sizeInBlocks;
     private final int[] blocks;
     private final int colorId;
+    private final int ioPosition;
 
     public SavedFile(
             String path,
@@ -17,7 +18,8 @@ public class SavedFile {
             EntryVisibility visibility,
             int sizeInBlocks,
             int[] blocks,
-            int colorId
+            int colorId,
+            int ioPosition
     ) {
         if (path == null || path.isBlank()) {
             throw new IllegalArgumentException("La ruta del archivo es obligatoria.");
@@ -28,6 +30,7 @@ public class SavedFile {
         this.sizeInBlocks = sizeInBlocks;
         this.blocks = copyBlocks(blocks);
         this.colorId = colorId;
+        this.ioPosition = ioPosition;
     }
 
     public String getPath() {
@@ -52,6 +55,10 @@ public class SavedFile {
 
     public int getColorId() {
         return colorId;
+    }
+
+    public int getIoPosition() {
+        return ioPosition;
     }
 
     private int[] copyBlocks(int[] source) {

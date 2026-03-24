@@ -31,6 +31,7 @@ public class FileExplorerPanel extends JPanel {
     private final JLabel ownerLabel;
     private final JLabel visibilityLabel;
     private final JLabel sizeLabel;
+    private final JLabel ioPositionLabel;
     private Consumer<String> selectionListener;
 
     public FileExplorerPanel() {
@@ -42,6 +43,7 @@ public class FileExplorerPanel extends JPanel {
         ownerLabel = new JLabel("Dueno: system");
         visibilityLabel = new JLabel("Visibilidad: SYSTEM");
         sizeLabel = new JLabel("Tamano: -");
+        ioPositionLabel = new JLabel("Posicion E/S: -");
         initializePanel();
     }
 
@@ -109,6 +111,7 @@ public class FileExplorerPanel extends JPanel {
         detailsPanel.add(ownerLabel);
         detailsPanel.add(visibilityLabel);
         detailsPanel.add(sizeLabel);
+        detailsPanel.add(ioPositionLabel);
         return detailsPanel;
     }
 
@@ -129,6 +132,7 @@ public class FileExplorerPanel extends JPanel {
         ownerLabel.setText("Dueno: " + node.getOwner());
         visibilityLabel.setText("Visibilidad: " + describeVisibility(node.getVisibility()));
         sizeLabel.setText("Tamano: " + describeSize(node));
+        ioPositionLabel.setText("Posicion E/S: " + describeIoPosition(node));
     }
 
     private void rebuildTree(FSNode currentNode, DefaultMutableTreeNode treeNode) {
@@ -187,5 +191,16 @@ public class FileExplorerPanel extends JPanel {
         }
         FileNode file = (FileNode) node;
         return file.getSizeInBlocks() + " bloques";
+    }
+
+    private String describeIoPosition(FSNode node) {
+        if (node.getType() != FSNodeType.FILE) {
+            return "-";
+        }
+        FileNode file = (FileNode) node;
+        if (file.getIoPosition() < 0) {
+            return "-";
+        }
+        return String.valueOf(file.getIoPosition());
     }
 }

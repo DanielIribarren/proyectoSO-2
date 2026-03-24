@@ -8,6 +8,7 @@ public class SimulationSaveData {
     private final UserMode userMode;
     private final SchedulingPolicy schedulingPolicy;
     private final int headPosition;
+    private final String currentUser;
     private final SavedDirectory[] directories;
     private final SavedFile[] files;
 
@@ -15,6 +16,7 @@ public class SimulationSaveData {
             UserMode userMode,
             SchedulingPolicy schedulingPolicy,
             int headPosition,
+            String currentUser,
             SavedDirectory[] directories,
             SavedFile[] files
     ) {
@@ -27,6 +29,7 @@ public class SimulationSaveData {
         this.userMode = userMode;
         this.schedulingPolicy = schedulingPolicy;
         this.headPosition = headPosition;
+        this.currentUser = currentUser == null || currentUser.isBlank() ? "daniel" : currentUser;
         this.directories = copyDirectories(directories);
         this.files = copyFiles(files);
     }
@@ -41,6 +44,10 @@ public class SimulationSaveData {
 
     public int getHeadPosition() {
         return headPosition;
+    }
+
+    public String getCurrentUser() {
+        return currentUser;
     }
 
     public SavedDirectory[] getDirectories() {

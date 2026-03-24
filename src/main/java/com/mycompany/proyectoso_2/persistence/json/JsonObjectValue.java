@@ -24,6 +24,15 @@ public class JsonObjectValue implements JsonValue {
         throw new IllegalArgumentException("No existe la propiedad JSON " + name + ".");
     }
 
+    public boolean has(String name) {
+        for (int index = 0; index < properties.size(); index++) {
+            if (properties.get(index).getName().equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public String getString(String name) {
         return ((JsonStringValue) get(name)).getValue();
     }
@@ -34,5 +43,17 @@ public class JsonObjectValue implements JsonValue {
 
     public JsonArrayValue getArray(String name) {
         return (JsonArrayValue) get(name);
+    }
+
+    public JsonObjectValue getObject(String name) {
+        return (JsonObjectValue) get(name);
+    }
+
+    public int size() {
+        return properties.size();
+    }
+
+    public JsonProperty getPropertyAt(int index) {
+        return properties.get(index);
     }
 }
