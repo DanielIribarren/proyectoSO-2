@@ -22,6 +22,7 @@ import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
+import javax.swing.JFormattedTextField;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -33,6 +34,7 @@ import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.text.NumberFormatter;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
@@ -78,6 +80,7 @@ public class MainFrame extends JFrame {
         modeComboBox = new JComboBox<>(UserMode.values());
         policyComboBox = new JComboBox<>(SchedulingPolicy.values());
         headSpinner = new JSpinner(new SpinnerNumberModel(12, 0, 199, 1));
+        configureHeadSpinner();
         currentUserField = new JTextField("daniel", 8);
         createFileButton = createActionButton("Crear archivo", this::handleCreateFile);
         createDirectoryButton = createActionButton("Crear directorio", this::handleCreateDirectory);
@@ -128,33 +131,49 @@ public class MainFrame extends JFrame {
     }
 
     private JPanel buildTopBar() {
-        JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+        JPanel topBar = new JPanel(new GridLayout(2, 1, 0, 6));
         topBar.setBorder(BorderFactory.createTitledBorder("Controles de simulacion"));
 
-        topBar.add(new JLabel("Modo"));
-        topBar.add(modeComboBox);
-        topBar.add(new JLabel("Politica"));
-        topBar.add(policyComboBox);
-        topBar.add(new JLabel("Cabezal"));
-        topBar.add(headSpinner);
-        topBar.add(new JLabel("Usuario"));
-        topBar.add(currentUserField);
-        topBar.add(applyUserButton);
-        topBar.add(startSchedulerButton);
-        topBar.add(pauseSchedulerButton);
-        topBar.add(resumeSchedulerButton);
-        topBar.add(interruptButton);
-        topBar.add(createFileButton);
-        topBar.add(createDirectoryButton);
-        topBar.add(readButton);
-        topBar.add(renameButton);
-        topBar.add(deleteButton);
-        topBar.add(simulateFailureButton);
-        topBar.add(loadTestCaseButton);
-        topBar.add(loadJsonButton);
-        topBar.add(saveJsonButton);
+        JPanel schedulerRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
+        schedulerRow.add(new JLabel("Modo"));
+        schedulerRow.add(modeComboBox);
+        schedulerRow.add(new JLabel("Politica"));
+        schedulerRow.add(policyComboBox);
+        schedulerRow.add(new JLabel("Cabezal"));
+        schedulerRow.add(headSpinner);
+        schedulerRow.add(new JLabel("Usuario"));
+        schedulerRow.add(currentUserField);
+        schedulerRow.add(applyUserButton);
+        schedulerRow.add(startSchedulerButton);
+        schedulerRow.add(pauseSchedulerButton);
+        schedulerRow.add(resumeSchedulerButton);
+        schedulerRow.add(interruptButton);
+
+        JPanel actionsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 4));
+        actionsRow.add(createFileButton);
+        actionsRow.add(createDirectoryButton);
+        actionsRow.add(readButton);
+        actionsRow.add(renameButton);
+        actionsRow.add(deleteButton);
+        actionsRow.add(simulateFailureButton);
+        actionsRow.add(loadTestCaseButton);
+        actionsRow.add(loadJsonButton);
+        actionsRow.add(saveJsonButton);
+
+        topBar.add(schedulerRow);
+        topBar.add(actionsRow);
 
         return topBar;
+    }
+
+    private void configureHeadSpinner() {
+        JSpinner.NumberEditor editor = new JSpinner.NumberEditor(headSpinner, "0");
+        headSpinner.setEditor(editor);
+        JFormattedTextField textField = editor.getTextField();
+        textField.setColumns(3);
+        if (textField.getFormatter() instanceof NumberFormatter formatter) {
+            formatter.setCommitsOnValidEdit(true);
+        }
     }
 
     private JSplitPane buildCenterArea() {
@@ -429,6 +448,7 @@ public class MainFrame extends JFrame {
     private void updateActionAvailability() {
         boolean adminMode = controller.getCurrentMode() == UserMode.ADMINISTRADOR;
         FSNode selectedNode = resolveActualSelectedNode();
+        headSpinner.setEnabled(controller.canAdjustHeadPosition());
         createFileButton.setEnabled(adminMode);
         createDirectoryButton.setEnabled(adminMode);
         renameButton.setEnabled(adminMode);

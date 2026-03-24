@@ -48,7 +48,7 @@ public class DiskPanel extends JPanel {
         if (disk == null) {
             summaryLabel.setText("Disco sin inicializar.");
         } else {
-            summaryLabel.setText("Cabezal logico en " + headPosition
+            summaryLabel.setText("Cabezal logico: " + headPosition
                     + " | libres: " + disk.countFreeBlocks()
                     + " | ocupados: " + disk.countUsedBlocks());
         }
@@ -91,19 +91,17 @@ public class DiskPanel extends JPanel {
 
             graphics.setColor(resolveBlockColor(block));
             graphics.fillRoundRect(x, y, blockWidth - 10, blockHeight - 10, 12, 12);
-            graphics.setColor(blockIndex == headPosition ? new Color(166, 35, 35) : Color.DARK_GRAY);
+            graphics.setColor(Color.DARK_GRAY);
             graphics.drawRoundRect(x, y, blockWidth - 10, blockHeight - 10, 12, 12);
 
             String label = block.getIndex() + describeNextBlock(block);
             int textX = x + 8;
             int textY = y + (blockHeight - 10 + fontMetrics.getAscent()) / 2 - 4;
             graphics.drawString(label, textX, textY);
-
-            if (blockIndex == headPosition) {
-                graphics.setColor(new Color(166, 35, 35));
-                graphics.fillOval(x + blockWidth - 24, y + 6, 10, 10);
-            }
         }
+
+        graphics.setColor(new Color(166, 35, 35));
+        graphics.drawString("Cabezal logico actual: " + headPosition, startX, startY - 8);
     }
 
     private Color resolveBlockColor(DiskBlock block) {

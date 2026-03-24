@@ -154,6 +154,12 @@ public class SimulationController {
         }
     }
 
+    public boolean canAdjustHeadPosition() {
+        synchronized (schedulerMonitor) {
+            return canAdjustHeadPositionLocked();
+        }
+    }
+
     public void setCurrentMode(UserMode currentMode) {
         synchronized (schedulerMonitor) {
             if (currentMode == null) {
@@ -186,7 +192,16 @@ public class SimulationController {
 
     public void setCurrentHeadPosition(int currentHeadPosition) {
         synchronized (schedulerMonitor) {
-            this.currentHeadPosition = normalizeRequestedPosition(currentHeadPosition);
+            int normalizedPosition = normalizeRequestedPosition(currentHeadPosition);
+            if (normalizedPosition == this.currentHeadPosition) {
+                return;
+            }
+            if (!canAdjustHeadPositionLocked()) {
+                throw new IllegalStateException(
+                        "Pausa el scheduler o espera a que termine el proceso actual antes de mover el cabezal."
+                );
+            }
+            this.currentHeadPosition = normalizedPosition;
             appendEventLocked("[HEAD] Cabezal logico ubicado en " + this.currentHeadPosition + ".");
         }
     }
@@ -1148,6 +1163,10 @@ public class SimulationController {
             }
         }
         return false;
+    }
+
+    private boolean canAdjustHeadPositionLocked() {
+        return currentProcess == null && (schedulerPaused || pendingTasks.isEmpty());
     }
 
     private int normalizeRequestedPosition(int requestedPosition) {
