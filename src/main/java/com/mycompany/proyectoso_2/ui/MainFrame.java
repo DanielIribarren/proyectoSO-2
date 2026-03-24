@@ -409,7 +409,11 @@ public class MainFrame extends JFrame {
         String selectedPath = fileExplorerPanel.getSelectedPath();
         fileExplorerPanel.setFileSystem(controller.buildVisibleTreeSnapshot());
         fileExplorerPanel.selectPath(selectedPath);
-        diskPanel.setDiskState(controller.getDisk(), controller.getCurrentHeadPosition());
+        diskPanel.setDiskState(
+                controller.getDisk(),
+                controller.getCurrentHeadPosition(),
+                controller.getLastHeadMovementSource()
+        );
         allocationTablePanel.setRows(controller.buildAllocationRows());
         processPanel.setRows(controller.buildProcessRows());
         processPanel.setLockDescription(controller.buildLockDescription());

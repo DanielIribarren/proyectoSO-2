@@ -36,19 +36,23 @@ public class DiskPanel extends JPanel {
     private final JLabel summaryLabel;
     private SimulatedDisk disk;
     private int headPosition;
+    private String headMovementSource;
 
     public DiskPanel() {
         summaryLabel = new JLabel("Disco sin inicializar.");
+        headMovementSource = "Inicial";
         initializePanel();
     }
 
-    public void setDiskState(SimulatedDisk disk, int headPosition) {
+    public void setDiskState(SimulatedDisk disk, int headPosition, String headMovementSource) {
         this.disk = disk;
         this.headPosition = headPosition;
+        this.headMovementSource = headMovementSource == null ? "Inicial" : headMovementSource;
         if (disk == null) {
             summaryLabel.setText("Disco sin inicializar.");
         } else {
             summaryLabel.setText("Cabezal logico: " + headPosition
+                    + " | origen: " + this.headMovementSource
                     + " | libres: " + disk.countFreeBlocks()
                     + " | ocupados: " + disk.countUsedBlocks());
         }
@@ -101,7 +105,11 @@ public class DiskPanel extends JPanel {
         }
 
         graphics.setColor(new Color(166, 35, 35));
-        graphics.drawString("Cabezal logico actual: " + headPosition, startX, startY - 8);
+        graphics.drawString(
+                "Cabezal logico actual: " + headPosition + " (" + headMovementSource + ")",
+                startX,
+                startY - 8
+        );
     }
 
     private Color resolveBlockColor(DiskBlock block) {

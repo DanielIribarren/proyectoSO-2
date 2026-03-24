@@ -58,6 +58,7 @@ public class SimulationController {
     private SchedulingPolicy schedulingPolicy;
     private HeadDirection headDirection;
     private int currentHeadPosition;
+    private String lastHeadMovementSource;
     private int nextPid;
     private String currentUser;
     private boolean schedulerStarted;
@@ -85,6 +86,7 @@ public class SimulationController {
         schedulingPolicy = SchedulingPolicy.FIFO;
         headDirection = HeadDirection.UP;
         currentHeadPosition = 12;
+        lastHeadMovementSource = "Inicial";
         nextPid = 1;
         currentUser = "daniel";
         schedulerStarted = false;
@@ -148,6 +150,12 @@ public class SimulationController {
         }
     }
 
+    public String getLastHeadMovementSource() {
+        synchronized (schedulerMonitor) {
+            return lastHeadMovementSource;
+        }
+    }
+
     public boolean isSchedulerPaused() {
         synchronized (schedulerMonitor) {
             return schedulerPaused;
@@ -202,6 +210,7 @@ public class SimulationController {
                 );
             }
             this.currentHeadPosition = normalizedPosition;
+            lastHeadMovementSource = "Manual";
             appendEventLocked("[HEAD] Cabezal logico ubicado en " + this.currentHeadPosition + ".");
         }
     }
@@ -275,6 +284,7 @@ public class SimulationController {
     public void createDirectory(String parentPath, String name, EntryVisibility visibility) {
         synchronized (schedulerMonitor) {
             ensureAdministratorLocked("crear directorios");
+            ensureInteractiveSchedulerReadyLocked();
             String normalizedParentPath = normalizeParentPath(parentPath);
             String targetPath = buildPath(normalizedParentPath, name);
             enqueueTaskLocked(
@@ -282,7 +292,7 @@ public class SimulationController {
                     targetPath,
                     currentHeadPosition,
                     LockType.EXCLUSIVE,
-                    true,
+                    false,
                     () -> {
                         checkpoint("antes de ejecutar");
                         synchronized (schedulerMonitor) {
@@ -303,6 +313,7 @@ public class SimulationController {
     public void createFile(String parentPath, String name, int sizeInBlocks, EntryVisibility visibility) {
         synchronized (schedulerMonitor) {
             ensureAdministratorLocked("crear archivos");
+            ensureInteractiveSchedulerReadyLocked();
             String normalizedParentPath = normalizeParentPath(parentPath);
             String targetPath = buildPath(normalizedParentPath, name);
             int requestedPosition = findFirstFreeIoPositionLocked();
@@ -311,7 +322,7 @@ public class SimulationController {
                     targetPath,
                     requestedPosition,
                     LockType.EXCLUSIVE,
-                    true,
+                    false,
                     () -> runCreateFileTask(
                             normalizedParentPath,
                             name,
@@ -326,13 +337,14 @@ public class SimulationController {
 
     public void queueRead(String path) {
         synchronized (schedulerMonitor) {
+            ensureInteractiveSchedulerReadyLocked();
             FileNode file = requireReadableFileLocked(path);
             enqueueTaskLocked(
                     OperationType.READ,
                     file.getPath(),
                     resolveRequestedPositionLocked(file),
                     LockType.SHARED,
-                    true,
+                    false,
                     () -> {
                         checkpoint("antes de ejecutar");
                         synchronized (schedulerMonitor) {
@@ -347,6 +359,7 @@ public class SimulationController {
 
     public void renameNode(String path, String newName) {
         synchronized (schedulerMonitor) {
+            ensureInteractiveSchedulerReadyLocked();
             FSNode targetNode = requireModifiableNodeLocked(path, "renombrar archivos o directorios");
             String requestedPath = targetNode.getPath();
             enqueueTaskLocked(
@@ -354,7 +367,7 @@ public class SimulationController {
                     requestedPath,
                     resolveRequestedPositionLocked(targetNode),
                     LockType.EXCLUSIVE,
-                    true,
+                    false,
                     () -> {
                         checkpoint("antes de ejecutar");
                         synchronized (schedulerMonitor) {
@@ -369,13 +382,14 @@ public class SimulationController {
 
     public void deleteNode(String path) {
         synchronized (schedulerMonitor) {
+            ensureInteractiveSchedulerReadyLocked();
             FSNode targetNode = requireModifiableNodeLocked(path, "eliminar archivos o directorios");
             enqueueTaskLocked(
                     OperationType.DELETE,
                     targetNode.getPath(),
                     resolveRequestedPositionLocked(targetNode),
                     LockType.EXCLUSIVE,
-                    true,
+                    false,
                     () -> runDeleteNodeTask(targetNode)
             );
         }
@@ -384,6 +398,7 @@ public class SimulationController {
     public void simulateFailedCreate(String parentPath, String name, int sizeInBlocks) {
         synchronized (schedulerMonitor) {
             ensureAdministratorLocked("simular fallos");
+            ensureInteractiveSchedulerReadyLocked();
             String normalizedParentPath = normalizeParentPath(parentPath);
             String targetPath = buildPath(normalizedParentPath, name);
             int requestedPosition = findFirstFreeIoPositionLocked();
@@ -392,7 +407,7 @@ public class SimulationController {
                     targetPath,
                     requestedPosition,
                     LockType.EXCLUSIVE,
-                    true,
+                    false,
                     () -> {
                         checkpoint("antes de ejecutar");
                         synchronized (schedulerMonitor) {
@@ -435,6 +450,7 @@ public class SimulationController {
             clearSimulationStateLocked();
             currentMode = UserMode.ADMINISTRADOR;
             currentHeadPosition = normalizeRequestedPosition(testCase.getInitialHead());
+            lastHeadMovementSource = "Caso de prueba";
             initializeBaseDirectoriesLocked();
             loadSystemFilesForCaseLocked(testCase);
             enqueueCaseRequestsLocked(testCase);
@@ -655,6 +671,7 @@ public class SimulationController {
                 lockAcquired = true;
                 process.setState(ProcessState.RUNNING);
                 currentHeadPosition = normalizeRequestedPosition(process.getRequestedPosition());
+                lastHeadMovementSource = "Scheduler";
                 appendEventLocked("[SCHED] Ejecutando PID " + process.getPid()
                         + " con " + schedulingPolicy
                         + " en posicion " + currentHeadPosition + ".");
@@ -898,11 +915,6 @@ public class SimulationController {
                 + " creado para " + operationType
                 + " en " + targetPath
                 + " @ " + normalizedPosition + ".");
-        if (autoStartScheduler && !schedulerStarted) {
-            schedulerStarted = true;
-            schedulerPaused = false;
-            appendEventLocked("[SCHED] Inicio automatico del scheduler por nueva solicitud.");
-        }
         schedulerMonitor.notifyAll();
     }
 
@@ -925,6 +937,7 @@ public class SimulationController {
         currentMode = saveData.getUserMode();
         schedulingPolicy = saveData.getSchedulingPolicy();
         currentHeadPosition = normalizeRequestedPosition(saveData.getHeadPosition());
+        lastHeadMovementSource = "JSON";
         currentUser = saveData.getCurrentUser();
 
         SavedDirectory[] directories = saveData.getDirectories();
@@ -1176,6 +1189,15 @@ public class SimulationController {
             }
         }
         return false;
+    }
+
+    private void ensureInteractiveSchedulerReadyLocked() {
+        if (!schedulerStarted) {
+            throw new IllegalStateException("Debes presionar Iniciar antes de ejecutar operaciones.");
+        }
+        if (schedulerPaused) {
+            throw new IllegalStateException("El scheduler esta pausado. Presiona Reanudar para continuar.");
+        }
     }
 
     private boolean canAdjustHeadPositionLocked() {

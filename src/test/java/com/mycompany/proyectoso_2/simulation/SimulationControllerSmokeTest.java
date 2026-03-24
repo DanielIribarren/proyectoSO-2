@@ -51,10 +51,15 @@ public final class SimulationControllerSmokeTest {
 
         controller.setCurrentMode(UserMode.USUARIO);
         controller.pauseScheduler();
-        controller.queueRead("/users/daniel/notes.txt");
-        assertEquals(ProcessState.NEW, controller.buildProcessRows()[controller.buildProcessRows().length - 1][3],
-                "El proceso debe quedar en NEW mientras el scheduler esta pausado.");
+        boolean pausedReadBlocked = false;
+        try {
+            controller.queueRead("/users/daniel/notes.txt");
+        } catch (IllegalStateException exception) {
+            pausedReadBlocked = true;
+        }
+        assertTrue(pausedReadBlocked, "Las operaciones interactivas deben exigir reanudar el scheduler.");
         controller.resumeScheduler();
+        controller.queueRead("/users/daniel/notes.txt");
         assertTrue(controller.waitUntilIdle(4_000), "La lectura debe completarse al reanudar.");
         assertTrue(controller.buildVisibleTreeSnapshot().findNode("/system/readme.txt") != null,
                 "Los archivos publicos deben seguir visibles en modo usuario.");
