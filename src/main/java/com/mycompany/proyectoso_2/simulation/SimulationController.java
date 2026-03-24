@@ -282,6 +282,7 @@ public class SimulationController {
                     targetPath,
                     currentHeadPosition,
                     LockType.EXCLUSIVE,
+                    true,
                     () -> {
                         checkpoint("antes de ejecutar");
                         synchronized (schedulerMonitor) {
@@ -310,6 +311,7 @@ public class SimulationController {
                     targetPath,
                     requestedPosition,
                     LockType.EXCLUSIVE,
+                    true,
                     () -> runCreateFileTask(
                             normalizedParentPath,
                             name,
@@ -330,6 +332,7 @@ public class SimulationController {
                     file.getPath(),
                     resolveRequestedPositionLocked(file),
                     LockType.SHARED,
+                    true,
                     () -> {
                         checkpoint("antes de ejecutar");
                         synchronized (schedulerMonitor) {
@@ -351,6 +354,7 @@ public class SimulationController {
                     requestedPath,
                     resolveRequestedPositionLocked(targetNode),
                     LockType.EXCLUSIVE,
+                    true,
                     () -> {
                         checkpoint("antes de ejecutar");
                         synchronized (schedulerMonitor) {
@@ -371,6 +375,7 @@ public class SimulationController {
                     targetNode.getPath(),
                     resolveRequestedPositionLocked(targetNode),
                     LockType.EXCLUSIVE,
+                    true,
                     () -> runDeleteNodeTask(targetNode)
             );
         }
@@ -387,6 +392,7 @@ public class SimulationController {
                     targetPath,
                     requestedPosition,
                     LockType.EXCLUSIVE,
+                    true,
                     () -> {
                         checkpoint("antes de ejecutar");
                         synchronized (schedulerMonitor) {
@@ -832,6 +838,7 @@ public class SimulationController {
                     targetPath,
                     request.getPosition(),
                     resolveLockType(request.getOperationType()),
+                    false,
                     () -> {
                         checkpoint("antes de ejecutar");
                         synchronized (schedulerMonitor) {
@@ -872,6 +879,7 @@ public class SimulationController {
             String targetPath,
             int requestedPosition,
             LockType lockType,
+            boolean autoStartScheduler,
             Runnable action
     ) {
         int normalizedPosition = normalizeRequestedPosition(requestedPosition);
@@ -890,6 +898,11 @@ public class SimulationController {
                 + " creado para " + operationType
                 + " en " + targetPath
                 + " @ " + normalizedPosition + ".");
+        if (autoStartScheduler && !schedulerStarted) {
+            schedulerStarted = true;
+            schedulerPaused = false;
+            appendEventLocked("[SCHED] Inicio automatico del scheduler por nueva solicitud.");
+        }
         schedulerMonitor.notifyAll();
     }
 
